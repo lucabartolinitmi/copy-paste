@@ -11,24 +11,36 @@ class PopupWindowController: NSObject {
 
     private override init() {}
 
+    // MARK: - Saved size
+
+    private var savedSize: NSSize {
+        get {
+            let w = UserDefaults.standard.double(forKey: "cp_panelWidth")
+            let h = UserDefaults.standard.double(forKey: "cp_panelHeight")
+            return (w >= 400 && h >= 280) ? NSSize(width: w, height: h) : NSSize(width: 520, height: 460)
+        }
+        set {
+            UserDefaults.standard.set(newValue.width, forKey: "cp_panelWidth")
+            UserDefaults.standard.set(newValue.height, forKey: "cp_panelHeight")
+        }
+    }
+
     func show() {
         if panel == nil { createPanel() }
 
         previousApp = NSWorkspace.shared.frontmostApplication
         NavigationState.shared.reset()
 
-        // Position near cursor
+        // Position near cursor, respecting saved size
+        let size = savedSize
         let mouse = NSEvent.mouseLocation
         let screenFrame = NSScreen.main?.visibleFrame ?? .zero
-        let width: CGFloat = 520
-        let height: CGFloat = 420
-        var x = mouse.x - width / 2
-        var y = mouse.y - height / 2
-        x = max(screenFrame.minX + 8, min(x, screenFrame.maxX - width - 8))
-        y = max(screenFrame.minY + 8, min(y, screenFrame.maxY - height - 8))
+        var x = mouse.x - size.width / 2
+        var y = mouse.y - size.height / 2
+        x = max(screenFrame.minX + 8, min(x, screenFrame.maxX - size.width - 8))
+        y = max(screenFrame.minY + 8, min(y, screenFrame.maxY - size.height - 8))
 
-        panel?.setFrameOrigin(NSPoint(x: x, y: y))
-        panel?.setContentSize(NSSize(width: width, height: height))
+        panel?.setFrame(NSRect(x: x, y: y, width: size.width, height: size.height), display: false)
 
         NSApp.activate(ignoringOtherApps: true)
         panel?.makeKeyAndOrderFront(nil)
@@ -37,6 +49,10 @@ class PopupWindowController: NSObject {
     }
 
     func hide() {
+        // Persist current size before hiding
+        if let frame = panel?.frame {
+            savedSize = frame.size
+        }
         animateOut {
             self.panel?.orderOut(nil)
         }
@@ -61,7 +77,7 @@ class PopupWindowController: NSObject {
     private func createPanel() {
         let p = NSPanel(
             contentRect: .zero,
-            styleMask: [.nonactivatingPanel, .fullSizeContentView, .titled, .closable],
+            styleMask: [.nonactivatingPanel, .fullSizeContentView, .titled, .closable, .resizable],
             backing: .buffered,
             defer: true
         )
@@ -74,6 +90,15 @@ class PopupWindowController: NSObject {
         p.titlebarAppearsTransparent = true
         p.isMovableByWindowBackground = true
         p.hidesOnDeactivate = false
+
+        // Hide traffic lights — clean borderless look, resize handle stays
+        p.standardWindowButton(.closeButton)?.isHidden = true
+        p.standardWindowButton(.miniaturizeButton)?.isHidden = true
+        p.standardWindowButton(.zoomButton)?.isHidden = true
+
+        // Size constraints
+        p.minSize = NSSize(width: 400, height: 280)
+        p.maxSize = NSSize(width: 1100, height: 900)
 
         let rootView = ClipboardListView()
             .environmentObject(ClipboardStore.shared)

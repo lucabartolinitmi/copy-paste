@@ -38,7 +38,10 @@ struct ClipboardListView: View {
                     TextField("Search…", text: $nav.searchText)
                         .textFieldStyle(.plain)
                         .font(.system(size: 14))
-                        .onChange(of: nav.searchText) { _ in nav.selectedIndex = 0 }
+                        .onChange(of: nav.searchText) { _ in
+                            nav.selectedIndex = 0
+                            nav.selectedID = nil
+                        }
                     Spacer()
                     Button { showSettings.toggle() } label: {
                         Image(systemName: showSettings ? "xmark.circle.fill" : "gear")
@@ -59,6 +62,7 @@ struct ClipboardListView: View {
                             FilterChip(label: type.rawValue, isActive: nav.activeFilter == type) {
                                 nav.activeFilter = type
                                 nav.selectedIndex = 0
+                                nav.selectedID = nil
                             }
                         }
                     }
@@ -89,15 +93,30 @@ struct ClipboardListView: View {
                                         ) {
                                             PopupWindowController.shared.pasteItem(item)
                                         }
-                                        .id(idx)
+                                        .id(item.id)   // stable UUID identity for scroll tracking
                                         .onTapGesture {
                                             nav.selectedIndex = idx
+                                            nav.selectedID = item.id
                                         }
                                     }
                                 }
                             }
+                            // Scroll to selection — follows item by UUID through reorders
                             .onChange(of: nav.selectedIndex) { idx in
-                                withAnimation { proxy.scrollTo(idx, anchor: .center) }
+                                let items = filteredItems
+                                if items.indices.contains(idx) {
+                                    nav.selectedID = items[idx].id
+                                }
+                                if let id = nav.selectedID {
+                                    withAnimation { proxy.scrollTo(id, anchor: .center) }
+                                }
+                            }
+                            // Resync selectedIndex when items reorder (e.g. after pin/unpin)
+                            .onChange(of: store.items) { _ in
+                                guard let id = nav.selectedID else { return }
+                                if let newIdx = filteredItems.firstIndex(where: { $0.id == id }) {
+                                    nav.selectedIndex = newIdx
+                                }
                             }
                         }
                     }
