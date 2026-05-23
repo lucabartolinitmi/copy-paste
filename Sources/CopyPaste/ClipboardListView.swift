@@ -93,7 +93,7 @@ struct ClipboardListView: View {
                                         ) {
                                             PopupWindowController.shared.pasteItem(item)
                                         }
-                                        .id(item.id)   // stable UUID identity for scroll tracking
+                                        .id(item.id)
                                         .onTapGesture {
                                             nav.selectedIndex = idx
                                             nav.selectedID = item.id
@@ -101,7 +101,6 @@ struct ClipboardListView: View {
                                     }
                                 }
                             }
-                            // Scroll to selection — follows item by UUID through reorders
                             .onChange(of: nav.selectedIndex) { idx in
                                 let items = filteredItems
                                 if items.indices.contains(idx) {
@@ -111,7 +110,6 @@ struct ClipboardListView: View {
                                     withAnimation { proxy.scrollTo(id, anchor: .center) }
                                 }
                             }
-                            // Resync selectedIndex when items reorder (e.g. after pin/unpin)
                             .onChange(of: store.items) { _ in
                                 guard let id = nav.selectedID else { return }
                                 if let newIdx = filteredItems.firstIndex(where: { $0.id == id }) {
@@ -120,13 +118,12 @@ struct ClipboardListView: View {
                             }
                         }
                     }
-                }
-            }
-                // Bottom toolbar
-                if !showSettings {
+
+                    // Bottom toolbar — inside VStack, always below the list
                     Divider()
                     BottomToolbar()
                 }
+            }
         }
         .animation(.spring(response: 0.25, dampingFraction: 0.85), value: showSettings)
     }

@@ -1,6 +1,13 @@
 import AppKit
 import SwiftUI
 
+// NSHostingView subclass that accepts first mouse click without requiring
+// prior window activation. Without this, nonactivatingPanel buttons need
+// two clicks: first activates the window, second triggers the action.
+private class FirstMouseHostingView<Content: View>: NSHostingView<Content> {
+    override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
+}
+
 class PopupWindowController: NSObject {
     static let shared = PopupWindowController()
 
@@ -105,7 +112,7 @@ class PopupWindowController: NSObject {
             .environmentObject(NavigationState.shared)
             .environmentObject(AppSettings.shared)
 
-        let host = NSHostingView(rootView: rootView)
+        let host = FirstMouseHostingView(rootView: rootView)
         host.layer?.cornerRadius = 12
         host.layer?.masksToBounds = true
         p.contentView = host
