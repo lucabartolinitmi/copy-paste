@@ -122,6 +122,11 @@ struct ClipboardListView: View {
                     }
                 }
             }
+                // Bottom toolbar
+                if !showSettings {
+                    Divider()
+                    BottomToolbar()
+                }
         }
         .animation(.spring(response: 0.25, dampingFraction: 0.85), value: showSettings)
     }
@@ -138,12 +143,54 @@ struct ClipboardRowView: View {
     @State private var isHovered = false
 
     var body: some View {
-        Group {
+        HStack(spacing: 10) {
+            // Content (no internal Spacer — handled here)
             if item.itemType == .image {
-                ImageRowContent(item: item, isSelected: isSelected, isHovered: isHovered, onPaste: onPaste)
+                ImageRowContent(item: item, isSelected: isSelected)
             } else {
-                TextRowContent(item: item, isSelected: isSelected, isHovered: isHovered)
+                TextRowContent(item: item, isSelected: isSelected)
             }
+
+            Spacer(minLength: 4)
+
+            // Right zone: ALWAYS in layout, opacity/hitTesting driven.
+            // This is the fix for the flicker bug: putting buttons inside
+            // the HStack keeps them within the row's frame, so .onHover
+            // stays true when the cursor moves onto the buttons.
+            ZStack(alignment: .trailing) {
+                // Pin indicator (idle + pinned)
+                Image(systemName: "pin.fill")
+                    .font(.system(size: 11))
+                    .foregroundColor(isSelected ? .white.opacity(0.6) : .secondary.opacity(0.5))
+                    .opacity(!isHovered && item.isPinned ? 1 : 0)
+
+                // Action buttons (on hover)
+                HStack(spacing: 10) {
+                    Button { store.togglePin(item) } label: {
+                        Image(systemName: item.isPinned ? "pin.slash" : "pin")
+                            .font(.system(size: 13))
+                            .foregroundColor(isSelected ? .white.opacity(0.9) : .secondary)
+                    }
+                    .buttonStyle(.plain)
+                    .help(item.isPinned ? "Rimuovi dai preferiti" : "Aggiungi ai preferiti")
+
+                    Button { store.delete(item) } label: {
+                        Image(systemName: "trash")
+                            .font(.system(size: 13))
+                            .foregroundColor(
+                                item.isPinned
+                                    ? (isSelected ? .white.opacity(0.2) : .secondary.opacity(0.2))
+                                    : (isSelected ? .white.opacity(0.9) : .red.opacity(0.7))
+                            )
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(item.isPinned)
+                    .help(item.isPinned ? "Rimuovi dai preferiti prima di eliminare" : "Elimina")
+                }
+                .opacity(isHovered ? 1 : 0)
+                .allowsHitTesting(isHovered)
+            }
+            .frame(width: 58, alignment: .trailing)
         }
         .padding(.horizontal, 14)
         .padding(.vertical, item.itemType == .image ? 6 : 8)
@@ -155,37 +202,6 @@ struct ClipboardRowView: View {
         .onHover { isHovered = $0 }
         .onTapGesture(count: 2) { onPaste() }
         .contentShape(Rectangle())
-        .overlay(alignment: .trailing) {
-            if isHovered {
-                rowActions
-                    .padding(.trailing, 18)
-            } else if item.isPinned {
-                Image(systemName: "pin.fill")
-                    .font(.system(size: 11))
-                    .foregroundColor(isSelected ? .white.opacity(0.6) : .secondary.opacity(0.5))
-                    .padding(.trailing, 18)
-            }
-        }
-    }
-
-    private var rowActions: some View {
-        HStack(spacing: 8) {
-            Button { store.togglePin(item) } label: {
-                Image(systemName: item.isPinned ? "pin.fill" : "pin")
-                    .font(.system(size: 12))
-                    .foregroundColor(isSelected ? .white.opacity(0.85) : .secondary)
-            }
-            .buttonStyle(.plain)
-
-            if !item.isPinned {
-                Button { store.delete(item) } label: {
-                    Image(systemName: "trash")
-                        .font(.system(size: 12))
-                        .foregroundColor(isSelected ? .white.opacity(0.85) : .secondary)
-                }
-                .buttonStyle(.plain)
-            }
-        }
     }
 }
 
@@ -194,8 +210,6 @@ struct ClipboardRowView: View {
 private struct ImageRowContent: View {
     let item: ClipboardItem
     let isSelected: Bool
-    let isHovered: Bool
-    let onPaste: () -> Void
 
     @State private var thumbnailHovered = false
     @State private var showPreview = false
@@ -224,9 +238,6 @@ private struct ImageRowContent: View {
                     .foregroundColor(isSelected ? .white.opacity(0.7) : .secondary)
             }
 
-            // Reserve space for overlay actions — prevents text jumping on hover
-            Spacer()
-            Color.clear.frame(width: isHovered ? 48 : 0)
         }
     }
 
@@ -313,7 +324,6 @@ private struct ImagePreviewPopover: View {
 private struct TextRowContent: View {
     let item: ClipboardItem
     let isSelected: Bool
-    let isHovered: Bool
 
     var body: some View {
         HStack(spacing: 10) {
@@ -329,10 +339,6 @@ private struct TextRowContent: View {
                     .font(.system(size: 11))
                     .foregroundColor(isSelected ? .white.opacity(0.7) : .secondary)
             }
-
-            Spacer()
-            // Reserve space for overlay actions
-            Color.clear.frame(width: isHovered ? 48 : 0)
         }
     }
 
@@ -352,6 +358,61 @@ private struct TextRowContent: View {
                 .font(.system(size: 12))
                 .foregroundColor(isSelected ? .white.opacity(0.8) : .secondary)
         }
+    }
+}
+
+// MARK: - Bottom toolbar
+
+private struct BottomToolbar: View {
+    @EnvironmentObject var store: ClipboardStore
+    @State private var showConfirm = false
+
+    private var unpinnedCount: Int { store.items.filter { !$0.isPinned }.count }
+    private var pinnedCount:   Int { store.items.filter {  $0.isPinned }.count }
+
+    var body: some View {
+        HStack(spacing: 8) {
+            // Item count
+            Group {
+                if pinnedCount > 0 {
+                    Label("\(pinnedCount)", systemImage: "pin.fill")
+                        .font(.system(size: 11))
+                        .foregroundColor(.secondary)
+                }
+                Text("\(unpinnedCount) items")
+                    .font(.system(size: 11))
+                    .foregroundColor(.secondary)
+            }
+
+            Spacer()
+
+            // Clear all unpinned
+            Button {
+                showConfirm = true
+            } label: {
+                HStack(spacing: 4) {
+                    Image(systemName: "trash")
+                        .font(.system(size: 11))
+                    Text("Cancella tutto")
+                        .font(.system(size: 11))
+                }
+                .foregroundColor(unpinnedCount == 0 ? .secondary.opacity(0.4) : .red.opacity(0.75))
+            }
+            .buttonStyle(.plain)
+            .disabled(unpinnedCount == 0)
+            .confirmationDialog(
+                "Eliminare tutti gli elementi non fissati?",
+                isPresented: $showConfirm,
+                titleVisibility: .visible
+            ) {
+                Button("Cancella tutto", role: .destructive) { store.clearAll() }
+                Button("Annulla", role: .cancel) {}
+            } message: {
+                Text("Gli elementi fissati (\(pinnedCount)) verranno conservati.")
+            }
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 7)
     }
 }
 
