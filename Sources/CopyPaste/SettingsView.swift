@@ -287,10 +287,36 @@ private struct ShortcutRow: View {
     @Binding var modifiers: Int
     let onSet: () -> Void
 
+    // macOS reserves Option+letter combos as dead keys for accented characters.
+    // Carbon RegisterEventHotKey may succeed but the input system intercepts
+    // the event before it reaches our handler, so the hotkey never fires.
+    private var isUnreliable: Bool {
+        guard keyCode >= 0 else { return false }
+        // Option-only modifier (no Cmd, Ctrl, or Shift)
+        let onlyOption = modifiers == Int(optionKey)
+        // Letter keys (A-Z keycodes): 0,1,2,3,4,5,6,7,8,9,11,12,13,14,15,16,17,
+        //                              31,32,34,35,37,38,40,45,46
+        let letterKeyCodes: Set<Int> = [0,1,2,3,4,5,6,7,8,9,11,12,13,14,15,16,
+                                        17,31,32,34,35,37,38,40,45,46]
+        return onlyOption && letterKeyCodes.contains(keyCode)
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             SettingsRow(label: label) {
                 KeyRecorderButton(keyCode: $keyCode, modifiers: $modifiers, onSet: onSet)
+            }
+            if isUnreliable {
+                HStack(spacing: 4) {
+                    Image(systemName: "exclamationmark.triangle.fill")
+                        .foregroundColor(.orange)
+                        .font(.system(size: 10))
+                    Text("macOS riserva Option+lettera per caratteri speciali — hotkey non scatterà. Aggiungi ⌘ o ⌃.")
+                        .font(.system(size: 10))
+                        .foregroundColor(.secondary)
+                }
+                .padding(.horizontal, 12)
+                .padding(.bottom, 6)
             }
         }
     }
