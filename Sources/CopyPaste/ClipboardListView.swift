@@ -30,47 +30,75 @@ struct ClipboardListView: View {
                 .ignoresSafeArea()
 
             VStack(spacing: 0) {
-                // Search bar
-                HStack(spacing: 8) {
-                    Image(systemName: "magnifyingglass")
-                        .foregroundColor(.secondary)
-                        .font(.system(size: 14))
-                    TextField("Search…", text: $nav.searchText)
-                        .textFieldStyle(.plain)
-                        .font(.system(size: 14))
-                        .onChange(of: nav.searchText) { _ in
-                            nav.selectedIndex = 0
-                            nav.selectedID = nil
+                // Header: search bar (history) OR back button (settings)
+                if showSettings {
+                    // Settings header: back button + title
+                    HStack(spacing: 8) {
+                        Button { showSettings = false } label: {
+                            HStack(spacing: 4) {
+                                Image(systemName: "chevron.left")
+                                    .font(.system(size: 12, weight: .semibold))
+                                Text("Indietro")
+                                    .font(.system(size: 13))
+                            }
+                            .foregroundColor(.accentColor)
                         }
-                    Spacer()
-                    Button { showSettings.toggle() } label: {
-                        Image(systemName: showSettings ? "xmark.circle.fill" : "gear")
-                            .foregroundColor(.secondary)
-                            .font(.system(size: 15))
+                        .buttonStyle(.plain)
+                        Spacer()
+                        Text("Impostazioni")
+                            .font(.system(size: 13, weight: .semibold))
+                            .foregroundColor(.primary)
+                        Spacer()
+                        // Spacer for visual balance with the back button
+                        Color.clear.frame(width: 70, height: 1)
                     }
-                    .buttonStyle(.plain)
-                }
-                .padding(.horizontal, 14)
-                .padding(.vertical, 10)
-
-                Divider()
-
-                // Filter chips
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 6) {
-                        ForEach(ClipType.allCases, id: \.self) { type in
-                            FilterChip(label: type.rawValue, isActive: nav.activeFilter == type) {
-                                nav.activeFilter = type
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 10)
+                } else {
+                    // History header: search + gear
+                    HStack(spacing: 8) {
+                        Image(systemName: "magnifyingglass")
+                            .foregroundColor(.secondary)
+                            .font(.system(size: 14))
+                        TextField("Search…", text: $nav.searchText)
+                            .textFieldStyle(.plain)
+                            .font(.system(size: 14))
+                            .onChange(of: nav.searchText) { _ in
                                 nav.selectedIndex = 0
                                 nav.selectedID = nil
                             }
+                        Spacer()
+                        Button { showSettings = true } label: {
+                            Image(systemName: "gear")
+                                .foregroundColor(.secondary)
+                                .font(.system(size: 15))
                         }
+                        .buttonStyle(.plain)
                     }
                     .padding(.horizontal, 14)
-                    .padding(.vertical, 6)
+                    .padding(.vertical, 10)
                 }
 
                 Divider()
+
+                // Filter chips — only relevant for history view
+                if !showSettings {
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: 6) {
+                            ForEach(ClipType.allCases, id: \.self) { type in
+                                FilterChip(label: type.rawValue, isActive: nav.activeFilter == type) {
+                                    nav.activeFilter = type
+                                    nav.selectedIndex = 0
+                                    nav.selectedID = nil
+                                }
+                            }
+                        }
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 6)
+                    }
+
+                    Divider()
+                }
 
                 if showSettings {
                     SettingsView()
