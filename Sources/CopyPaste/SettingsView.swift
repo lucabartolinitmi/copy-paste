@@ -287,18 +287,19 @@ private struct ShortcutRow: View {
     @Binding var modifiers: Int
     let onSet: () -> Void
 
-    // macOS reserves Option+letter combos as dead keys for accented characters.
-    // Carbon RegisterEventHotKey may succeed but the input system intercepts
-    // the event before it reaches our handler, so the hotkey never fires.
+    // macOS reserves Option+letter (and Option+Shift+letter) combos as dead
+    // keys for accented/special characters. Carbon RegisterEventHotKey may
+    // succeed but the input system intercepts the event before our handler
+    // sees it, so the hotkey never fires.
+    //
+    // Reliable hotkeys need at least one of: Cmd (⌘) or Control (⌃).
     private var isUnreliable: Bool {
         guard keyCode >= 0 else { return false }
-        // Option-only modifier (no Cmd, Ctrl, or Shift)
-        let onlyOption = modifiers == Int(optionKey)
-        // Letter keys (A-Z keycodes): 0,1,2,3,4,5,6,7,8,9,11,12,13,14,15,16,17,
-        //                              31,32,34,35,37,38,40,45,46
         let letterKeyCodes: Set<Int> = [0,1,2,3,4,5,6,7,8,9,11,12,13,14,15,16,
                                         17,31,32,34,35,37,38,40,45,46]
-        return onlyOption && letterKeyCodes.contains(keyCode)
+        guard letterKeyCodes.contains(keyCode) else { return false }
+        let hasCmdOrCtrl = (modifiers & (Int(cmdKey) | Int(controlKey))) != 0
+        return !hasCmdOrCtrl
     }
 
     var body: some View {
@@ -311,7 +312,7 @@ private struct ShortcutRow: View {
                     Image(systemName: "exclamationmark.triangle.fill")
                         .foregroundColor(.orange)
                         .font(.system(size: 10))
-                    Text("macOS riserva Option+lettera per caratteri speciali — hotkey non scatterà. Aggiungi ⌘ o ⌃.")
+                    Text("macOS intercetta questa combo per caratteri speciali. Aggiungi ⌘ (Cmd/Start) o ⌃ (Ctrl).")
                         .font(.system(size: 10))
                         .foregroundColor(.secondary)
                 }
