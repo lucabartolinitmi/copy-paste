@@ -19,8 +19,11 @@ bundle: build
 	@echo "✓ Built $(APP_BUNDLE)"
 
 install: bundle
-	cp -r "$(APP_BUNDLE)" "/Applications/$(APP_BUNDLE)"
+	@pkill -x $(BINARY) 2>/dev/null || true
+	rm -rf "/Applications/$(APP_BUNDLE)"
+	cp -R "$(APP_BUNDLE)" "/Applications/$(APP_BUNDLE)"
 	@echo "✓ Installed to /Applications/$(APP_BUNDLE)"
+	open "/Applications/$(APP_BUNDLE)"
 
 run: bundle
 	open "$(APP_BUNDLE)"
