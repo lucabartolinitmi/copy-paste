@@ -41,7 +41,11 @@ class PopupWindowController: NSObject {
         // Position near cursor, respecting saved size
         let size = savedSize
         let mouse = NSEvent.mouseLocation
-        let screenFrame = NSScreen.main?.visibleFrame ?? .zero
+        // Find the screen that actually contains the cursor (not NSScreen.main,
+        // which points to the screen with the key window — wrong on multi-monitor).
+        let screen = NSScreen.screens.first(where: { $0.frame.contains(mouse) })
+            ?? NSScreen.main
+        let screenFrame = screen?.visibleFrame ?? .zero
         var x = mouse.x - size.width / 2
         var y = mouse.y - size.height / 2
         x = max(screenFrame.minX + 8, min(x, screenFrame.maxX - size.width - 8))
@@ -140,6 +144,11 @@ class PopupWindowController: NSObject {
     }
 
     private func installEventMonitors() {
+        // Guard against re-entrancy: if show() is called twice without an
+        // intervening hide(), the previous monitor references would be
+        // overwritten without being unregistered, leaking event monitors.
+        removeEventMonitors()
+
         globalEventMonitor = NSEvent.addGlobalMonitorForEvents(
             matching: [.leftMouseDown, .rightMouseDown]
         ) { [weak self] _ in

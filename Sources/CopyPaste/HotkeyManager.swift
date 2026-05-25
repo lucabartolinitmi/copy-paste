@@ -121,11 +121,13 @@ class HotkeyManager {
         }
     }
 
+    /// Returns true on success. Logs collision/error to console.
+    @discardableResult
     private func registerHotkey(
         keyCode: Int, modifiers: Int, id: UInt32, ref: inout EventHotKeyRef?
-    ) {
+    ) -> Bool {
         let hkID = EventHotKeyID(signature: kHKSignature, id: id)
-        RegisterEventHotKey(
+        let status = RegisterEventHotKey(
             UInt32(keyCode),
             UInt32(modifiers),
             hkID,
@@ -133,6 +135,15 @@ class HotkeyManager {
             0,
             &ref
         )
+        if status != noErr {
+            // eventHotKeyExistsErr = -9878 (same combo already taken,
+            // either by us or by another app)
+            let combo = AppSettings.displayString(for: keyCode, modifiers: modifiers)
+            PasteLog.log("HotkeyManager: failed to register \(combo) for id \(id) (status \(status))")
+            NSLog("[CopyPaste] Hotkey conflict: '\(combo)' already in use (status=\(status))")
+            return false
+        }
+        return true
     }
 
     private func unregisterHotkeys() {

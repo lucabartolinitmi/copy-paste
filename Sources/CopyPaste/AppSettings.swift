@@ -25,7 +25,14 @@ class AppSettings: ObservableObject {
     }
 
     @Published var persistHistory: Bool {
-        didSet { UserDefaults.standard.set(persistHistory, forKey: "cp_persistHistory") }
+        didSet {
+            UserDefaults.standard.set(persistHistory, forKey: "cp_persistHistory")
+            // When disabling persistence, clear the stored history blob so it
+            // doesn't linger in UserDefaults until the next save() overwrite.
+            if !persistHistory {
+                UserDefaults.standard.removeObject(forKey: "cp_clipboardHistory")
+            }
+        }
     }
 
     @Published var maxItems: Int {

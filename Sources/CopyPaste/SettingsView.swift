@@ -91,6 +91,21 @@ private struct GeneralTab: View {
 private struct ShortcutsTab: View {
     @ObservedObject var settings: AppSettings
 
+    // Detect duplicate keyCode+modifier combos across the 3 hotkey slots.
+    // Returns label of the conflicting slot, or nil if unique.
+    private func conflict(keyCode: Int, modifiers: Int, excluding: String) -> String? {
+        guard keyCode >= 0 else { return nil }
+        let combos: [(String, Int, Int)] = [
+            ("Open panel",        settings.hotkeyKeyCode,      settings.hotkeyModifiers),
+            ("Quick paste text",  settings.hotkeyTextKeyCode,  settings.hotkeyTextModifiers),
+            ("Quick paste image", settings.hotkeyImageKeyCode, settings.hotkeyImageModifiers),
+        ]
+        for (name, kc, mods) in combos where name != excluding && kc == keyCode && mods == modifiers {
+            return name
+        }
+        return nil
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 2) {
             SettingsSection("Keyboard Shortcuts") {
@@ -116,7 +131,49 @@ private struct ShortcutsTab: View {
                     onSet: { HotkeyManager.shared.reregister() }
                 )
             }
+
+            // Inline collision warning if two slots share the same combo
+            if let openConflict = conflict(
+                keyCode: settings.hotkeyKeyCode, modifiers: settings.hotkeyModifiers,
+                excluding: "Open panel"
+            ) {
+                ConflictBanner(combo: AppSettings.displayString(
+                    for: settings.hotkeyKeyCode, modifiers: settings.hotkeyModifiers
+                ), other: openConflict)
+            } else if let textConflict = conflict(
+                keyCode: settings.hotkeyTextKeyCode, modifiers: settings.hotkeyTextModifiers,
+                excluding: "Quick paste text"
+            ) {
+                ConflictBanner(combo: AppSettings.displayString(
+                    for: settings.hotkeyTextKeyCode, modifiers: settings.hotkeyTextModifiers
+                ), other: textConflict)
+            } else if let imgConflict = conflict(
+                keyCode: settings.hotkeyImageKeyCode, modifiers: settings.hotkeyImageModifiers,
+                excluding: "Quick paste image"
+            ) {
+                ConflictBanner(combo: AppSettings.displayString(
+                    for: settings.hotkeyImageKeyCode, modifiers: settings.hotkeyImageModifiers
+                ), other: imgConflict)
+            }
         }
+    }
+}
+
+private struct ConflictBanner: View {
+    let combo: String
+    let other: String
+
+    var body: some View {
+        HStack(spacing: 6) {
+            Image(systemName: "exclamationmark.triangle.fill")
+                .foregroundColor(.orange)
+                .font(.system(size: 11))
+            Text("\(combo) is already assigned to \"\(other)\". One of them will not work.")
+                .font(.system(size: 11))
+                .foregroundColor(.secondary)
+        }
+        .padding(.top, 8)
+        .padding(.horizontal, 2)
     }
 }
 
@@ -276,6 +333,9 @@ struct KeyRecorderButton: View {
                 .foregroundColor(isRecording ? .accentColor : .primary)
         }
         .buttonStyle(.plain)
+        // Cleanup: if user closes the settings window while still recording,
+        // the local event monitor would leak and keep intercepting keystrokes.
+        .onDisappear { stopRecording() }
     }
 
     private func startRecording() {
@@ -288,9 +348,25 @@ struct KeyRecorderButton: View {
                 return nil
             }
 
-            let mods = event.modifierFlags
-            let hasRequired = mods.contains(.command) || mods.contains(.control) || mods.contains(.option)
-            guard hasRequired else { return nil }
+            // Strip non-modifier bits (.capsLock, .numericPad, .function, .help, .coreSwiftReserved)
+            // that pollute event.modifierFlags on some keyboards (notably 3rd-party
+            // wireless boards via remapper software like Logitech Options+).
+            let mods = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
+
+            // Diagnostic log — visible in Console.app filter: "CopyPaste"
+            NSLog("[CopyPaste KeyRecorder] keyCode=%d rawFlags=0x%X masked=0x%X chars=%@",
+                  event.keyCode,
+                  event.modifierFlags.rawValue,
+                  mods.rawValue,
+                  event.charactersIgnoringModifiers ?? "")
+
+            // Accept any combo that has at least one modifier. Shift-only is now
+            // allowed (e.g. Shift+F1) since some users want function-key combos.
+            let hasModifier = mods.contains(.command) ||
+                              mods.contains(.control) ||
+                              mods.contains(.option) ||
+                              mods.contains(.shift)
+            guard hasModifier else { return nil }
 
             // Convert NSEvent modifiers to Carbon modifiers
             var carbonMods = 0
