@@ -119,10 +119,11 @@ class AppSettings: ObservableObject {
     static func displayString(for keyCode: Int, modifiers: Int) -> String {
         guard keyCode >= 0 else { return "Not Set" }
         var s = ""
+        if modifiers & fnMask          != 0 { s += "fn " }
         if modifiers & Int(controlKey) != 0 { s += "⌃" }
-        if modifiers & Int(optionKey) != 0 { s += "⌥" }
-        if modifiers & Int(shiftKey) != 0 { s += "⇧" }
-        if modifiers & Int(cmdKey) != 0 { s += "⌘" }
+        if modifiers & Int(optionKey)  != 0 { s += "⌥" }
+        if modifiers & Int(shiftKey)   != 0 { s += "⇧" }
+        if modifiers & Int(cmdKey)     != 0 { s += "⌘" }
         s += keyName(for: keyCode)
         return s
     }

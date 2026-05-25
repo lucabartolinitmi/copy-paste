@@ -287,20 +287,10 @@ private struct ShortcutRow: View {
     @Binding var modifiers: Int
     let onSet: () -> Void
 
-    // macOS reserves Option+letter (and Option+Shift+letter) combos as dead
-    // keys for accented/special characters. Carbon RegisterEventHotKey may
-    // succeed but the input system intercepts the event before our handler
-    // sees it, so the hotkey never fires.
-    //
-    // Reliable hotkeys need at least one of: Cmd (⌘) or Control (⌃).
-    private var isUnreliable: Bool {
-        guard keyCode >= 0 else { return false }
-        let letterKeyCodes: Set<Int> = [0,1,2,3,4,5,6,7,8,9,11,12,13,14,15,16,
-                                        17,31,32,34,35,37,38,40,45,46]
-        guard letterKeyCodes.contains(keyCode) else { return false }
-        let hasCmdOrCtrl = (modifiers & (Int(cmdKey) | Int(controlKey))) != 0
-        return !hasCmdOrCtrl
-    }
+    // No longer flagging combos — CGEventTap intercepts before the input
+    // system dead-key processing, so Option+letter combos work fine now.
+    // Kept as `false` for now in case we need to re-enable specific warnings.
+    private var isUnreliable: Bool { false }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -375,35 +365,33 @@ struct KeyRecorderButton: View {
                 return nil
             }
 
-            // Strip non-modifier bits (.capsLock, .numericPad, .function, .help, .coreSwiftReserved)
-            // that pollute event.modifierFlags on some keyboards (notably 3rd-party
-            // wireless boards via remapper software like Logitech Options+).
             let mods = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
 
-            // Diagnostic log — visible in Console.app filter: "CopyPaste"
             NSLog("[CopyPaste KeyRecorder] keyCode=%d rawFlags=0x%X masked=0x%X chars=%@",
                   event.keyCode,
                   event.modifierFlags.rawValue,
                   mods.rawValue,
                   event.charactersIgnoringModifiers ?? "")
+            PasteLog.log("KeyRecorder: keyCode=\(event.keyCode) rawFlags=0x\(String(event.modifierFlags.rawValue, radix: 16))")
 
-            // Accept any combo that has at least one modifier. Shift-only is now
-            // allowed (e.g. Shift+F1) since some users want function-key combos.
+            // Accept any combo with at least one modifier (Cmd / Ctrl / Option / Shift / Fn)
             let hasModifier = mods.contains(.command) ||
                               mods.contains(.control) ||
                               mods.contains(.option) ||
-                              mods.contains(.shift)
+                              mods.contains(.shift) ||
+                              mods.contains(.function)
             guard hasModifier else { return nil }
 
-            // Convert NSEvent modifiers to Carbon modifiers
-            var carbonMods = 0
-            if mods.contains(.command) { carbonMods |= Int(cmdKey) }
-            if mods.contains(.shift)   { carbonMods |= Int(shiftKey) }
-            if mods.contains(.option)  { carbonMods |= Int(optionKey) }
-            if mods.contains(.control) { carbonMods |= Int(controlKey) }
+            // Convert NSEvent modifiers to our bitmask (Carbon-style + fnMask)
+            var bits = 0
+            if mods.contains(.command)  { bits |= Int(cmdKey) }
+            if mods.contains(.shift)    { bits |= Int(shiftKey) }
+            if mods.contains(.option)   { bits |= Int(optionKey) }
+            if mods.contains(.control)  { bits |= Int(controlKey) }
+            if mods.contains(.function) { bits |= fnMask }
 
             self.keyCode = Int(event.keyCode)
-            self.modifiers = carbonMods
+            self.modifiers = bits
             self.stopRecording()
             self.onSet()
             return nil

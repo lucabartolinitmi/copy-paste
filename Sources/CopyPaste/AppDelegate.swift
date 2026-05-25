@@ -1,5 +1,7 @@
 import AppKit
 import SwiftUI
+import IOKit
+import IOKit.hid
 
 class AppDelegate: NSObject, NSApplicationDelegate {
     private var statusItem: NSStatusItem?
@@ -55,11 +57,17 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     // MARK: - Quick paste (without opening panel)
 
     private func quickPaste(type: ItemType) {
+        PasteLog.log("quickPaste called type=\(type)")
         let item: ClipboardItem? = type == .text
             ? ClipboardStore.shared.lastTextItem()
             : ClipboardStore.shared.lastImageItem()
-        guard let item else { return }
+        guard let item else {
+            PasteLog.log("quickPaste: no item found for type=\(type)")
+            return
+        }
+        PasteLog.log("quickPaste: found item id=\(item.id) preview=\(item.preview)")
         let previousApp = NSWorkspace.shared.frontmostApplication
+        PasteLog.log("quickPaste: previousApp=\(previousApp?.localizedName ?? "nil")")
         PopupWindowController.shared.writeToClipboard(item)
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
             previousApp?.activate(options: .activateIgnoringOtherApps)
@@ -70,7 +78,12 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func simulatePaste() {
-        guard AXIsProcessTrusted() else { return }
+        let trusted = AXIsProcessTrusted()
+        PasteLog.log("simulatePaste: AXIsProcessTrusted=\(trusted)")
+        guard trusted else {
+            PasteLog.log("simulatePaste: BLOCKED — accessibility not granted")
+            return
+        }
         let src = CGEventSource(stateID: .hidSystemState)
         let keyV: CGKeyCode = 9
         let down = CGEvent(keyboardEventSource: src, virtualKey: keyV, keyDown: true)
@@ -144,10 +157,18 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         self.settingsWindow = window
     }
 
-    // MARK: - Accessibility
+    // MARK: - Permissions
 
     private func requestAccessibility() {
         let opts: NSDictionary = [kAXTrustedCheckOptionPrompt.takeRetainedValue(): true]
         AXIsProcessTrustedWithOptions(opts)
+
+        // Input Monitoring — required for CGEventTap-based hotkey detection
+        let inputAccess = IOHIDCheckAccess(kIOHIDRequestTypeListenEvent)
+        PasteLog.log("Input Monitoring access: \(inputAccess.rawValue) (0=granted, 1=denied, 2=unknown)")
+        if inputAccess != kIOHIDAccessTypeGranted {
+            _ = IOHIDRequestAccess(kIOHIDRequestTypeListenEvent)
+            PasteLog.log("Input Monitoring: requested permission prompt")
+        }
     }
 }
