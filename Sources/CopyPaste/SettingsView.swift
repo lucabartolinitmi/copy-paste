@@ -289,7 +289,7 @@ struct KeyRecorderButton: View {
             }
 
             let mods = event.modifierFlags
-            let hasRequired = mods.contains(.command) || mods.contains(.control)
+            let hasRequired = mods.contains(.command) || mods.contains(.control) || mods.contains(.option)
             guard hasRequired else { return nil }
 
             // Convert NSEvent modifiers to Carbon modifiers

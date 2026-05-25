@@ -94,10 +94,13 @@ struct ClipboardListView: View {
                                             PopupWindowController.shared.pasteItem(item)
                                         }
                                         .id(item.id)
-                                        .onTapGesture {
+                                        // simultaneousGesture instead of onTapGesture:
+                                        // runs alongside child Button taps without consuming them.
+                                        // onTapGesture would block button clicks on the row.
+                                        .simultaneousGesture(TapGesture().onEnded {
                                             nav.selectedIndex = idx
                                             nav.selectedID = item.id
-                                        }
+                                        })
                                     }
                                 }
                             }
