@@ -30,10 +30,12 @@ Inspired by [paste-hist](https://github.com/massimiliano-volpiana/paste-hist) by
 | Action | Default | Description |
 |--------|---------|-------------|
 | **Open panel** | `⌘⇧V` | Show the clipboard history panel at cursor |
-| **Quick paste text** | — | Instantly paste last text item, no panel |
-| **Quick paste image** | — | Instantly paste last image item, no panel |
+| **Quick paste text** | `⌘⇧X` | Instantly paste last text item, no panel |
+| **Quick paste image** | `⌘⇧Z` | Instantly paste last image item, no panel |
 
 All shortcuts are recorded in-app — click the field and press the new combo.
+Supports Cmd, Shift, Option, Control, and the Fn modifier (where the keyboard
+sends it as `kCGEventFlagMaskSecondaryFn`).
 
 ### Menu Bar Only
 - No Dock icon, no main window
@@ -46,7 +48,17 @@ All shortcuts are recorded in-app — click the field and press the new combo.
 
 - macOS 13 Ventura or later
 - Swift 5.9+ (only needed for building from source)
-- Accessibility permission (required for auto-paste via `⌘V` simulation)
+- **Accessibility permission** — required for auto-paste via `⌘V` simulation
+- **Input Monitoring permission** — required for global hotkey detection
+  (CGEventTap engine, intercepts before macOS dead-key composition)
+
+On first launch, the app requests both permissions. Grant them via
+**System Settings → Privacy & Security**, then restart the app.
+
+> **Tip:** if hotkeys stop working after rebuilding from source, reset and
+> re-grant via `tccutil reset ListenEvent it.tmi.copypaste` then toggle the
+> entry in Input Monitoring. Ad-hoc signed binaries get a new code hash on
+> every rebuild, which invalidates the TCC permission record.
 
 ---
 

@@ -101,13 +101,15 @@ class AppSettings: ObservableObject {
         hotkeyModifiers = UserDefaults.standard.object(forKey: "cp_hotkeyModifiers") as? Int
             ?? (Int(cmdKey) | Int(shiftKey))
 
-        // Quick text: not set by default
-        hotkeyTextKeyCode = UserDefaults.standard.object(forKey: "cp_hotkeyTextKeyCode") as? Int ?? -1
-        hotkeyTextModifiers = UserDefaults.standard.object(forKey: "cp_hotkeyTextModifiers") as? Int ?? 0
+        // Quick text: ⌘⇧X by default (keyCode 7 = X)
+        hotkeyTextKeyCode = UserDefaults.standard.object(forKey: "cp_hotkeyTextKeyCode") as? Int ?? 7
+        hotkeyTextModifiers = UserDefaults.standard.object(forKey: "cp_hotkeyTextModifiers") as? Int
+            ?? (Int(cmdKey) | Int(shiftKey))
 
-        // Quick image: not set by default
-        hotkeyImageKeyCode = UserDefaults.standard.object(forKey: "cp_hotkeyImageKeyCode") as? Int ?? -1
-        hotkeyImageModifiers = UserDefaults.standard.object(forKey: "cp_hotkeyImageModifiers") as? Int ?? 0
+        // Quick image: ⌘⇧Z by default (keyCode 6 = Z)
+        hotkeyImageKeyCode = UserDefaults.standard.object(forKey: "cp_hotkeyImageKeyCode") as? Int ?? 6
+        hotkeyImageModifiers = UserDefaults.standard.object(forKey: "cp_hotkeyImageModifiers") as? Int
+            ?? (Int(cmdKey) | Int(shiftKey))
 
         screenshotFolderEnabled = UserDefaults.standard.bool(forKey: "cp_screenshotFolderEnabled")
         let defaultPath = (NSHomeDirectory() as NSString).appendingPathComponent("Desktop")
