@@ -128,6 +128,7 @@ struct ClipboardListView: View {
                                         .simultaneousGesture(TapGesture().onEnded {
                                             nav.selectedIndex = idx
                                             nav.selectedID = item.id
+                                            PopupWindowController.shared.writeToClipboard(item)
                                         })
                                     }
                                 }

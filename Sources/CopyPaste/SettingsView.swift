@@ -414,12 +414,13 @@ private struct FolderPickerRow: View {
     var body: some View {
         SettingsRow(label: label) {
             HStack(spacing: 6) {
-                Text((path as NSString).lastPathComponent)
+                Text(displayPath)
                     .font(.system(size: 12))
                     .foregroundColor(isEnabled ? .primary : .secondary)
                     .lineLimit(1)
-                    .truncationMode(.middle)
-                    .frame(maxWidth: 140, alignment: .trailing)
+                    .truncationMode(.head)
+                    .frame(maxWidth: 160, alignment: .trailing)
+                    .help(path)
 
                 Button("Choose…") {
                     pickFolder()
@@ -431,12 +432,23 @@ private struct FolderPickerRow: View {
         }
     }
 
+    private var displayPath: String {
+        let expanded = (path as NSString).expandingTildeInPath
+        let home = NSHomeDirectory()
+        if expanded.hasPrefix(home) {
+            return "~" + expanded.dropFirst(home.count)
+        }
+        return expanded
+    }
+
     private func pickFolder() {
         let panel = NSOpenPanel()
         panel.canChooseFiles = false
         panel.canChooseDirectories = true
         panel.allowsMultipleSelection = false
         panel.prompt = "Select Folder"
+        let expandedPath = (path as NSString).expandingTildeInPath
+        panel.directoryURL = URL(fileURLWithPath: expandedPath)
         if panel.runModal() == .OK, let url = panel.url {
             path = url.path
         }

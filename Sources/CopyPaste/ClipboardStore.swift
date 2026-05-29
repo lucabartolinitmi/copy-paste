@@ -71,11 +71,11 @@ class ClipboardStore: ObservableObject {
     }
 
     func lastTextItem() -> ClipboardItem? {
-        items.first { $0.itemType == .text }
+        items.first { $0.itemType == .text && !$0.isPinned }
     }
 
     func lastImageItem() -> ClipboardItem? {
-        items.first { $0.itemType == .image }
+        items.first { $0.itemType == .image && !$0.isPinned }
     }
 
     private func trimUnpinned() {
