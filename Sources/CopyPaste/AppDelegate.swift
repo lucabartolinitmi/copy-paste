@@ -161,7 +161,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
     private func requestAccessibility() {
         let opts: NSDictionary = [kAXTrustedCheckOptionPrompt.takeRetainedValue(): true]
-        AXIsProcessTrustedWithOptions(opts)
+        let axTrusted = AXIsProcessTrustedWithOptions(opts)
+        PasteLog.log("Accessibility trusted: \(axTrusted)")
 
         // Input Monitoring — required for CGEventTap-based hotkey detection
         let inputAccess = IOHIDCheckAccess(kIOHIDRequestTypeListenEvent)
