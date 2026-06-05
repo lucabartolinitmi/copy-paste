@@ -57,6 +57,7 @@ class PopupWindowController: NSObject {
         panel?.makeKeyAndOrderFront(nil)
         animateIn()
         installEventMonitors()
+        ClipboardMonitor.shared.pause()
     }
 
     func hide() {
@@ -68,6 +69,7 @@ class PopupWindowController: NSObject {
             self.panel?.orderOut(nil)
         }
         removeEventMonitors()
+        ClipboardMonitor.shared.resume()
     }
 
     // MARK: - Paste item

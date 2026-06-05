@@ -6,9 +6,17 @@ class ClipboardMonitor {
     private var timer: Timer?
     private var lastChangeCount: Int = 0
     private let store: ClipboardStore
+    private(set) var isPaused = false
 
     private init(store: ClipboardStore = .shared) {
         self.store = store
+    }
+
+    func pause() { isPaused = true }
+
+    func resume() {
+        isPaused = false
+        lastChangeCount = NSPasteboard.general.changeCount
     }
 
     func start() {
@@ -29,6 +37,7 @@ class ClipboardMonitor {
     }
 
     private func poll() {
+        guard !isPaused else { return }
         let current = NSPasteboard.general.changeCount
         guard current != lastChangeCount else { return }
         lastChangeCount = current

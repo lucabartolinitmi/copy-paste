@@ -94,7 +94,7 @@ class AppSettings: ObservableObject {
         launchAtLogin = UserDefaults.standard.bool(forKey: "cp_launchAtLogin")
         captureImages = UserDefaults.standard.object(forKey: "cp_captureImages") as? Bool ?? true
         persistHistory = UserDefaults.standard.object(forKey: "cp_persistHistory") as? Bool ?? true
-        maxItems = UserDefaults.standard.object(forKey: "cp_maxItems") as? Int ?? 50
+        maxItems = UserDefaults.standard.object(forKey: "cp_maxItems") as? Int ?? 100
 
         // Open panel: ⌘⇧V
         hotkeyKeyCode = UserDefaults.standard.object(forKey: "cp_hotkeyKeyCode") as? Int ?? 9

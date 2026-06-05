@@ -126,8 +126,10 @@ struct ClipboardListView: View {
                                         // runs alongside child Button taps without consuming them.
                                         // onTapGesture would block button clicks on the row.
                                         .simultaneousGesture(TapGesture().onEnded {
-                                            nav.selectedIndex = idx
                                             nav.selectedID = item.id
+                                            if let currentIdx = filteredItems.firstIndex(where: { $0.id == item.id }) {
+                                                nav.selectedIndex = currentIdx
+                                            }
                                             PopupWindowController.shared.writeToClipboard(item)
                                         })
                                     }
@@ -139,7 +141,7 @@ struct ClipboardListView: View {
                                     nav.selectedID = items[idx].id
                                 }
                                 if let id = nav.selectedID {
-                                    withAnimation { proxy.scrollTo(id, anchor: .center) }
+                                    proxy.scrollTo(id, anchor: nil)
                                 }
                             }
                             .onChange(of: store.items) { _ in
