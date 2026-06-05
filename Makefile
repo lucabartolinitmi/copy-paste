@@ -26,6 +26,11 @@ install: bundle
 	cp -R "$(APP_BUNDLE)" "/Applications/$(APP_BUNDLE)"
 	@echo "✓ Installed to /Applications/$(APP_BUNDLE)"
 	open "/Applications/$(APP_BUNDLE)"
+	@sleep 1
+	@echo ""
+	@echo "⚠️  Ad-hoc signing invalidates Input Monitoring on every rebuild."
+	@echo "   Re-enable CopyPaste in System Settings → Privacy & Security → Input Monitoring"
+	open "x-apple.systempreferences:com.apple.preference.security?Privacy_ListenEvent"
 
 run: bundle
 	open "$(APP_BUNDLE)"
