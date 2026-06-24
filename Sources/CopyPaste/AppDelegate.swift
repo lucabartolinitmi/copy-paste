@@ -9,6 +9,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     private var hotkeyObserver: NSObjectProtocol?
     private var quickTextObserver: NSObjectProtocol?
     private var quickImageObserver: NSObjectProtocol?
+    private var tapFailedObserver: NSObjectProtocol?
+    private var wakeObserver: NSObjectProtocol?
+    private var permissionMenuItem: NSMenuItem?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         PasteLog.clear()
@@ -19,8 +22,27 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         ClipboardMonitor.shared.start()
         HotkeyManager.shared.register()
 
+        if !HotkeyManager.shared.isActive {
+            showPermissionWarning()
+        }
+
         if AppSettings.shared.screenshotFolderEnabled {
             ScreenshotFolderMonitor.shared.start()
+        }
+
+        wakeObserver = NSWorkspace.shared.notificationCenter.addObserver(
+            forName: NSWorkspace.didWakeNotification, object: nil, queue: .main
+        ) { [weak self] _ in
+            HotkeyManager.shared.reregister()
+            if HotkeyManager.shared.isActive {
+                self?.permissionMenuItem?.isHidden = true
+            }
+        }
+
+        tapFailedObserver = NotificationCenter.default.addObserver(
+            forName: .tapInstallFailed, object: nil, queue: .main
+        ) { [weak self] _ in
+            self?.showPermissionWarning()
         }
 
         // Show panel hotkey
@@ -49,8 +71,11 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         ClipboardMonitor.shared.stop()
         ScreenshotFolderMonitor.shared.stop()
         HotkeyManager.shared.unregister()
-        [hotkeyObserver, quickTextObserver, quickImageObserver].forEach {
+        [hotkeyObserver, quickTextObserver, quickImageObserver, tapFailedObserver].forEach {
             if let obs = $0 { NotificationCenter.default.removeObserver(obs) }
+        }
+        if let obs = wakeObserver {
+            NSWorkspace.shared.notificationCenter.removeObserver(obs)
         }
     }
 
@@ -107,6 +132,17 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         }
 
         let menu = NSMenu()
+
+        let permItem = NSMenuItem(
+            title: "⚠️ Shortcuts disabled — grant Input Monitoring",
+            action: #selector(openInputMonitoringSettings),
+            keyEquivalent: ""
+        )
+        permItem.isHidden = true
+        menu.addItem(permItem)
+        menu.addItem(NSMenuItem.separator())
+        permissionMenuItem = permItem
+
         menu.addItem(NSMenuItem(title: "Show History", action: #selector(showHistory), keyEquivalent: ""))
         menu.addItem(NSMenuItem.separator())
         menu.addItem(NSMenuItem(title: "Settings…", action: #selector(openSettings), keyEquivalent: ","))
@@ -160,16 +196,32 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     // MARK: - Permissions
 
     private func requestAccessibility() {
+        // Accessibility is needed for simulatePaste() — prompt only if missing
         let opts: NSDictionary = [kAXTrustedCheckOptionPrompt.takeRetainedValue(): true]
         let axTrusted = AXIsProcessTrustedWithOptions(opts)
         PasteLog.log("Accessibility trusted: \(axTrusted)")
 
-        // Input Monitoring — required for CGEventTap-based hotkey detection
+        // Input Monitoring: only log — tap failure posts .tapInstallFailed which shows menu item
         let inputAccess = IOHIDCheckAccess(kIOHIDRequestTypeListenEvent)
         PasteLog.log("Input Monitoring access: \(inputAccess.rawValue) (0=granted, 1=denied, 2=unknown)")
-        if inputAccess != kIOHIDAccessTypeGranted {
-            _ = IOHIDRequestAccess(kIOHIDRequestTypeListenEvent)
-            PasteLog.log("Input Monitoring: requested permission prompt")
+    }
+
+    private func showPermissionWarning() {
+        permissionMenuItem?.isHidden = false
+        NSWorkspace.shared.open(
+            URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_ListenEvent")!
+        )
+    }
+
+    @objc private func openInputMonitoringSettings() {
+        NSWorkspace.shared.open(
+            URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_ListenEvent")!
+        )
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2) { [weak self] in
+            HotkeyManager.shared.reregister()
+            if HotkeyManager.shared.isActive {
+                self?.permissionMenuItem?.isHidden = true
+            }
         }
     }
 }

@@ -6,6 +6,7 @@ extension Notification.Name {
     static let showCopyPaste   = Notification.Name("showCopyPaste")
     static let quickPasteText  = Notification.Name("quickPasteText")
     static let quickPasteImage = Notification.Name("quickPasteImage")
+    static let tapInstallFailed = Notification.Name("tapInstallFailed")
 }
 
 // Hotkey IDs
@@ -22,6 +23,8 @@ class HotkeyManager {
     private var tap: CFMachPort?
     private var runLoopSource: CFRunLoopSource?
 
+    var isActive: Bool { tap != nil }
+
     // Stored hotkey list: (keyCode, modifierBitmask, id)
     private var hotkeys: [(CGKeyCode, Int, UInt32)] = []
 
@@ -36,7 +39,12 @@ class HotkeyManager {
 
     func reregister() {
         rebuildHotkeyList()
-        if tap == nil { installTap() }
+        if let t = tap {
+            CGEvent.tapEnable(tap: t, enable: true)
+            PasteLog.log("HotkeyManager: tap re-enabled")
+        } else {
+            installTap()
+        }
     }
 
     func unregister() {
@@ -84,6 +92,9 @@ class HotkeyManager {
         ) else {
             PasteLog.log("HotkeyManager: CGEventTap.tapCreate FAILED — Input Monitoring permission needed?")
             NSLog("[CopyPaste] CGEventTap creation failed. Grant Input Monitoring permission in System Settings → Privacy & Security.")
+            DispatchQueue.main.async {
+                NotificationCenter.default.post(name: .tapInstallFailed, object: nil)
+            }
             return
         }
 

@@ -1,7 +1,8 @@
-BINARY      = CopyPaste
-BUILD_DIR   = .build/release
-APP_BUNDLE  = $(BINARY).app
-CONTENTS    = $(APP_BUNDLE)/Contents
+BINARY        = CopyPaste
+BUILD_DIR     = .build/release
+APP_BUNDLE    = $(BINARY).app
+CONTENTS      = $(APP_BUNDLE)/Contents
+SIGN_IDENTITY ?= CopyPaste Dev
 
 .PHONY: all build bundle install clean run
 
@@ -17,8 +18,16 @@ bundle: build
 	cp "$(BUILD_DIR)/$(BINARY)" "$(CONTENTS)/MacOS/$(BINARY)"
 	cp "Sources/CopyPaste/Info.plist" "$(CONTENTS)/Info.plist"
 	@xattr -cr "$(APP_BUNDLE)" 2>/dev/null || true
-	codesign --force --deep --sign - "$(APP_BUNDLE)"
-	@echo "✓ Built and ad-hoc signed $(APP_BUNDLE)"
+	@if security find-identity -v -p codesigning | grep -q '"$(SIGN_IDENTITY)"'; then \
+		codesign --force --deep --sign "$(SIGN_IDENTITY)" "$(APP_BUNDLE)" && \
+		echo "✓ Built and signed with '$(SIGN_IDENTITY)' $(APP_BUNDLE)"; \
+	else \
+		echo "⚠️  Certificate '$(SIGN_IDENTITY)' not found — using ad-hoc signing."; \
+		echo "   Create it once: Keychain Access → Certificate Assistant → Create a Certificate"; \
+		echo "   Name: $(SIGN_IDENTITY), Type: Code Signing"; \
+		codesign --force --deep --sign - "$(APP_BUNDLE)" && \
+		echo "✓ Built and ad-hoc signed $(APP_BUNDLE)"; \
+	fi
 
 install: bundle
 	@pkill -x $(BINARY) 2>/dev/null || true
