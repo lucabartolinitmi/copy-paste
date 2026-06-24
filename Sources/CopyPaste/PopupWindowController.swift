@@ -228,8 +228,9 @@ class PopupWindowController: NSObject {
         case .text:
             if let text = item.text { pb.setString(text, forType: .string) }
         case .image:
-            if let path = item.imagePath, let img = NSImage(contentsOfFile: path) {
-                pb.writeObjects([img])
+            if let path = item.imagePath, let img = NSImage(contentsOfFile: path),
+               let tiff = img.tiffRepresentation {
+                pb.setData(tiff, forType: .tiff)
             }
         }
         ClipboardMonitor.shared.syncAfterWrite()
