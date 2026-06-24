@@ -1,7 +1,5 @@
 import AppKit
 import SwiftUI
-import IOKit
-import IOKit.hid
 
 class AppDelegate: NSObject, NSApplicationDelegate {
     private var statusItem: NSStatusItem?
@@ -9,9 +7,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     private var hotkeyObserver: NSObjectProtocol?
     private var quickTextObserver: NSObjectProtocol?
     private var quickImageObserver: NSObjectProtocol?
-    private var tapFailedObserver: NSObjectProtocol?
     private var wakeObserver: NSObjectProtocol?
-    private var permissionMenuItem: NSMenuItem?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         PasteLog.clear()
@@ -22,44 +18,31 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         ClipboardMonitor.shared.start()
         HotkeyManager.shared.register()
 
-        if !HotkeyManager.shared.isActive {
-            showPermissionWarning()
-        }
+        PasteLog.log("HotkeyManager isActive=\(HotkeyManager.shared.isActive)")
 
         if AppSettings.shared.screenshotFolderEnabled {
             ScreenshotFolderMonitor.shared.start()
         }
 
+        // Re-register hotkeys after sleep/wake (Carbon hotkeys survive wake, but belt-and-suspenders)
         wakeObserver = NSWorkspace.shared.notificationCenter.addObserver(
             forName: NSWorkspace.didWakeNotification, object: nil, queue: .main
-        ) { [weak self] _ in
+        ) { _ in
             HotkeyManager.shared.reregister()
-            if HotkeyManager.shared.isActive {
-                self?.permissionMenuItem?.isHidden = true
-            }
         }
 
-        tapFailedObserver = NotificationCenter.default.addObserver(
-            forName: .tapInstallFailed, object: nil, queue: .main
-        ) { [weak self] _ in
-            self?.showPermissionWarning()
-        }
-
-        // Show panel hotkey
         hotkeyObserver = NotificationCenter.default.addObserver(
             forName: .showCopyPaste, object: nil, queue: .main
         ) { _ in
             PopupWindowController.shared.show()
         }
 
-        // Quick paste last text
         quickTextObserver = NotificationCenter.default.addObserver(
             forName: .quickPasteText, object: nil, queue: .main
         ) { [weak self] _ in
             self?.quickPaste(type: .text)
         }
 
-        // Quick paste last image
         quickImageObserver = NotificationCenter.default.addObserver(
             forName: .quickPasteImage, object: nil, queue: .main
         ) { [weak self] _ in
@@ -71,7 +54,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         ClipboardMonitor.shared.stop()
         ScreenshotFolderMonitor.shared.stop()
         HotkeyManager.shared.unregister()
-        [hotkeyObserver, quickTextObserver, quickImageObserver, tapFailedObserver].forEach {
+        [hotkeyObserver, quickTextObserver, quickImageObserver].forEach {
             if let obs = $0 { NotificationCenter.default.removeObserver(obs) }
         }
         if let obs = wakeObserver {
@@ -132,17 +115,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         }
 
         let menu = NSMenu()
-
-        let permItem = NSMenuItem(
-            title: "⚠️ Shortcuts disabled — grant Input Monitoring",
-            action: #selector(openInputMonitoringSettings),
-            keyEquivalent: ""
-        )
-        permItem.isHidden = true
-        menu.addItem(permItem)
-        menu.addItem(NSMenuItem.separator())
-        permissionMenuItem = permItem
-
         menu.addItem(NSMenuItem(title: "Show History", action: #selector(showHistory), keyEquivalent: ""))
         menu.addItem(NSMenuItem.separator())
         menu.addItem(NSMenuItem(title: "Settings…", action: #selector(openSettings), keyEquivalent: ","))
@@ -196,32 +168,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     // MARK: - Permissions
 
     private func requestAccessibility() {
-        // Accessibility is needed for simulatePaste() — prompt only if missing
+        // Accessibility needed only for simulatePaste() — prompt if missing
         let opts: NSDictionary = [kAXTrustedCheckOptionPrompt.takeRetainedValue(): true]
         let axTrusted = AXIsProcessTrustedWithOptions(opts)
         PasteLog.log("Accessibility trusted: \(axTrusted)")
-
-        // Input Monitoring: only log — tap failure posts .tapInstallFailed which shows menu item
-        let inputAccess = IOHIDCheckAccess(kIOHIDRequestTypeListenEvent)
-        PasteLog.log("Input Monitoring access: \(inputAccess.rawValue) (0=granted, 1=denied, 2=unknown)")
-    }
-
-    private func showPermissionWarning() {
-        permissionMenuItem?.isHidden = false
-        NSWorkspace.shared.open(
-            URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_ListenEvent")!
-        )
-    }
-
-    @objc private func openInputMonitoringSettings() {
-        NSWorkspace.shared.open(
-            URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_ListenEvent")!
-        )
-        DispatchQueue.main.asyncAfter(deadline: .now() + 2) { [weak self] in
-            HotkeyManager.shared.reregister()
-            if HotkeyManager.shared.isActive {
-                self?.permissionMenuItem?.isHidden = true
-            }
-        }
+        // Input Monitoring NOT required — hotkeys use Carbon RegisterEventHotKey, not CGEventTap
     }
 }
