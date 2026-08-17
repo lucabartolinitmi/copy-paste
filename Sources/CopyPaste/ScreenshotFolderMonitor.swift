@@ -89,11 +89,35 @@ class ScreenshotFolderMonitor {
     }
 
     private func ingestImageFile(at path: String) {
-        // Small delay to ensure the file has finished writing
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
-            guard let image = NSImage(contentsOfFile: path) else { return }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { [weak self] in
+            self?.attemptIngest(path: path, remainingAttempts: 6, lastSize: nil)
+        }
+    }
+
+    // Large or slow-writing files (big displays, iCloud Desktop sync contention) may
+    // not be finished writing after a single fixed delay — poll until the file size
+    // stops changing between two checks before reading it, retrying a few times.
+    private func attemptIngest(path: String, remainingAttempts: Int, lastSize: Int?) {
+        let size = fileSize(at: path)
+        let stable = size != nil && size == lastSize
+
+        if stable, let image = NSImage(contentsOfFile: path) {
             ClipboardStore.shared.add(image: image)
             PasteLog.log("ScreenshotFolderMonitor: ingested \(path)")
+            return
         }
+
+        guard remainingAttempts > 1 else {
+            PasteLog.log("ScreenshotFolderMonitor: gave up on \(path) after retries (size=\(String(describing: size)))")
+            return
+        }
+
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
+            self?.attemptIngest(path: path, remainingAttempts: remainingAttempts - 1, lastSize: size)
+        }
+    }
+
+    private func fileSize(at path: String) -> Int? {
+        (try? FileManager.default.attributesOfItem(atPath: path))?[.size] as? Int
     }
 }

@@ -26,12 +26,12 @@ class ClipboardStore: ObservableObject {
     }
 
     func add(image: NSImage) {
-        guard let tiff = image.tiffRepresentation, tiff.count < 10_000_000 else { return }
+        guard let tiff = image.tiffRepresentation,
+              let png = NSBitmapImageRep(data: tiff)?.representation(using: .png, properties: [:])
+        else { return }
         let fileName = UUID().uuidString + ".png"
         let fileURL = appSupportDir.appendingPathComponent(fileName)
-        if let png = NSBitmapImageRep(data: tiff)?.representation(using: .png, properties: [:]) {
-            try? png.write(to: fileURL)
-        }
+        guard (try? png.write(to: fileURL)) != nil else { return }
         let item = ClipboardItem(itemType: .image, imagePath: fileURL.path)
         insertAtTop(item)
     }

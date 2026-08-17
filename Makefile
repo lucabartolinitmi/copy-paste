@@ -38,13 +38,12 @@ install: bundle
 	@sleep 1
 	@echo ""
 	@if security find-identity -v -p codesigning | grep -q '"$(SIGN_IDENTITY)"'; then \
-		echo "ℹ️  Signed with '$(SIGN_IDENTITY)' — Input Monitoring permission persists across rebuilds."; \
+		echo "ℹ️  Signed with '$(SIGN_IDENTITY)' — Accessibility and Files & Folders permissions persist across rebuilds."; \
 		echo "   (Only needed once per machine, or after deleting the certificate.)"; \
 	else \
-		echo "⚠️  Ad-hoc signing invalidates Input Monitoring on every rebuild."; \
-		echo "   Re-enable CopyPaste in System Settings → Privacy & Security → Input Monitoring"; \
+		echo "⚠️  Ad-hoc signing invalidates granted permissions on every rebuild."; \
+		echo "   Re-enable CopyPaste in System Settings → Privacy & Security → Accessibility / Files and Folders"; \
 	fi
-	open "x-apple.systempreferences:com.apple.preference.security?Privacy_ListenEvent"
 
 run: bundle
 	open "$(APP_BUNDLE)"
